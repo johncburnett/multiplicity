@@ -1,6 +1,6 @@
 (
 /*
-* spaces/installation.scd
+* multiplicity/multiplicity.scd
 *
 * tbd
 * Copyright (C) 2016 - John Burnett
@@ -581,7 +581,7 @@ s.waitForBoot({
 	//_GUI
 
 	// window config
-	w = Window("audio", Rect(
+	w = Window("multiplicity", Rect(
 		Window.screenBounds.width - 200,
 		Window.screenBounds.height,
 		200,
