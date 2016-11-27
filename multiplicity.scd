@@ -2,7 +2,7 @@
 /*
 * multiplicity/multiplicity.scd
 *
-* tbd
+* multiplicity
 * Copyright (C) 2016 - John Burnett
 * <http://www.johncburnett.com/>
 *
@@ -31,15 +31,15 @@ s = Server.local;
 o = s.options;
 o.memSize_(2e6); // 2GB of RAM
 o.numInputBusChannels  = 2; // 2 in
-o.numOutputBusChannels = 4; // 4 out
+o.numOutputBusChannels = 2; // 2 out
 
 //_Globals
-~debug_ide = true;
-~display_gui = true;
+~debugIDE = true;
+~displayGUI = true;
 
 //_Synthesis globals
-~dur = 8.0;   // duration of each swell
-~space = 2.0; // space between swell onsets
+~dur = 10.0;   // duration of each swell
+~space = 2.5; // space between swell onsets
 
 s.waitForBoot({
 
@@ -299,7 +299,7 @@ s.waitForBoot({
 		phaseEnv = Line.ar(0.0, 10.0.rand, 8);
 		ampEnv   = EnvGen.ar(Env.linen(~dur*0.25, ~dur*0.5, ~dur*0.25), doneAction:2);
 		pmOsc    = PMOsc.ar(carrier, mod, phaseEnv, mul:0.1);
-		mix      = Pan2.ar(pmOsc * ampEnv, pan);
+		mix      = Pan2.ar(pmOsc * ampEnv, pan) * amp;
 		Out.ar(20, mix);
 	}).load(s);
 
@@ -310,9 +310,213 @@ s.waitForBoot({
 		var in, mix;
 		in = In.ar(20, 2);
 		mix = Limiter.ar(MidEQ.ar(in, 15000, 0.7, 8)) * amp;
-		// SendPeakRMS.kr(in, 61, 3, '/rms');
 		Out.ar(0, mix);
 	}).load(s);
+
+	/**************************************************************************************************/
+	//_Routing
+
+	s.sync; /* wait for server */
+
+	// mixer
+	~mix = Synth(\mixer, [\amp, 0.0]);
+
+	// processing
+	~collage   = Synth(\collage,   [\amp, 0.0]);
+	~melting   = Synth(\melt,      [\amp, 0.0]);
+	~conform   = Synth(\conformer, [\amp, 0.0]);
+	~convolve  = Synth(\convolve,  [\amp, 0.0]);
+	~resonator = Synth(\resonator, [\amp, 0.0]);
+	~inRes     = Synth(\inharmRes, [\amp, 0.0]);
+
+	// samplers
+	~water  = Synth(\looper_2ch, [\bufnum, ~b1.bufnum]);
+	~park   = Synth(\looper_2ch, [\bufnum, ~b2.bufnum]);
+	~alm    = Synth(\looper_2ch, [\bufnum, ~b3.bufnum]);
+	~coffee = Synth(\looper_2ch, [\bufnum, ~b4.bufnum]);
+
+	// synth arrays
+	~gens = [~water, ~park, ~alm, ~coffee]; // generators
+	~proc = [~collage, ~melting, ~conform, ~convolve, ~resonator, ~inRes]; // processing
+
+	/**************************************************************************************************/
+	//_Worlds
+
+	/*
+	* world0
+	*
+	* field recording of park fading into granulated layers
+	*/
+	~world0 = Routine({
+		~reset.(~world1);
+		~reset.(~world2);
+		~reset.(~world3);
+
+		// exits
+		if(~activity[1], {
+			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:15);
+			~fadeout.(~alm, amp:0.05, len:15);
+		},{ /* else */
+			~fadein.(~melting, amp:0.8, len:60.0);
+		});
+		if(~activity[2], {
+			"exiting world 2".postln;
+			~fadeout.(~water, amp:0.1, len:15.0);
+			~interp.(~water, \send, 0.8, 0.0, len:30);
+		},{ /* else */
+			~fadein.(~collage, amp:0.8, len:45.0);
+		});
+		if(~activity[3], {
+			"exiting world 3".postln;
+		});
+
+		~activity = false!4;
+		~activity[0] = true;
+
+		Routine.run({
+			~fadein.(~park, amp:0.8, len:15.0);
+			15.wait;
+			~fadeout.(~park, amp:0.8, len:30.0);
+		});
+
+		~interp.(~park, \send, 0.0, 0.8, len:45.0);
+		// ~fadein.(~collage, amp:0.8, len:45.0);
+
+		"entering world 0".postln;
+	});
+
+
+	/*
+	* world1
+	*
+	* almglocken sounds with 'melt' processing
+	*/
+	~world1 = Routine({
+		~reset.(~world0);
+		~reset.(~world2);
+		~reset.(~world3);
+
+		// exits
+		if(~activity[0], {
+			"exiting world 0".postln;
+			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~collage, amp:0.8, len:30);
+		},{ /* else */
+			~fadein.(~melting, amp:0.8, len:60.0);
+		});
+		if(~activity[2], {
+			"exiting world 2".postln;
+			~fadeout.(~water, amp:0.1, len:30.0);
+			~interp.(~water, \send, 0.8, 0.0, len:30);
+		});
+		if(~activity[3], {
+			"exiting world 3".postln;
+		});
+
+		~activity = false!4;
+		~activity[1] = true;
+
+		~interp.(~alm, \send, 0.0, 0.3, len:30);
+
+		Routine.run({
+			~fadein.(~alm, amp:0.05, len:15.0);
+			15.wait;
+			~fadeout.(~alm, amp:0.05, len:30.0);
+		}).play;
+
+		"entering world 1".postln;
+	});
+
+
+	/*
+	* world2
+	*
+	* liquid
+	*/
+	~world2 = Routine({
+		~reset.(~world0);
+		~reset.(~world1);
+		~reset.(~world3);
+
+		// exits
+		if(~activity[0], {
+			"exiting world 0".postln;
+			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~melting, amp:0.8, len:30);
+		},{ /* else */
+			~fadein.(~collage, amp:0.8, len:45.0); // if not already set
+		});
+		if(~activity[1], {
+			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
+			~fadeout.(~alm, amp:0.05, len:30.0);
+			~fadeout.(~collage, amp:0.8, len:30.0);
+			~fadeout.(~melting, amp:0.8, len:30.0);
+		});
+		if(~activity[3], {
+			"exiting world 3".postln;
+		});
+
+		~activity = false!4;
+		~activity[2] = true;
+
+		~fadein.(~water, amp:0.1, len:30.0);
+		~interp.(~water, \send, 0.0, 0.8, len:30);
+
+		"entering world 2".postln;
+	});
+
+
+	/*
+	* world3
+	*
+	* phase modulation synthesis
+	*/
+	~world3 = Routine({
+		~reset.(~world0);
+		~reset.(~world1);
+		~reset.(~world2);
+
+		// exits
+		if(~activity[0], {
+			"exiting world 0".postln;
+			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~collage, amp:0.8, len:30);
+			~fadeout.(~melting, amp:0.8, len:30);
+		});
+		if(~activity[1], {
+			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
+			~fadeout.(~alm, amp:0.05, len:30.0);
+			~fadeout.(~collage, amp:0.8, len:30.0);
+			~fadeout.(~melting, amp:0.8, len:30.0);
+		});
+		if(~activity[2], {
+			"exiting world 2".postln;
+			~fadeout.(~water, amp:0.1, len:30.0);
+			~interp.(~water, \send, 0.8, 0.0, len:30);
+			~fadeout.(~collage, \collage, amp:0.8, len:30.0);
+		});
+
+		~activity = false!4;
+		~activity[3] = true;
+
+		// audio
+		Routine.run({
+			while( {~activity[3]}, {
+				Synth(\phaseMod, [
+					\carrier,	2000.0.rand,
+					\mod, 		800.rand,
+					\pan, 		1.0.rand2,
+					\amp, 		0.4
+				]);
+				~space.wait;
+			});
+		});
+
+		"entering world 3".postln;
+	});
 
 	//--------------------------------------------------------------
 	//_Utilities
@@ -342,13 +546,18 @@ s.waitForBoot({
 
 	~activity = false!4;
 
-	~reset = { |r|
-/*		~activity = false!4;*/
-		r.stop.reset;
-/*		for(0, ~worlds.size-1, { |i|
-			~worlds[i].stop;
-			~worlds[i].reset;
-		});*/
+	~reset = { |r| r.stop.reset };
+
+	~resetAll = {
+		~world0.stop.reset;
+		~world1.stop.reset;
+		~world2.stop.reset;
+		~world3.stop.reset;
+
+		~activity = false!4;
+
+		for(0, ~gens.size-1, { |i| ~gens[i].set(\amp, 0.0, \send, 0.0) });
+		for(0, ~proc.size-1, { |i| ~proc[i].set(\amp, 0.0) });
 	};
 
 	~fadein = { |synth, amp=0.8, len=10.0, res=50|
@@ -375,207 +584,10 @@ s.waitForBoot({
 			res.do({ |i|
 				var v0 = spec.map(i/res);
 				synth.set(param, v0);
-				// ~osc.sendMsg("/mod0", i/res * 0.1);
 				(len/res).wait;
 			});
 		}).play;
 	};
-
-	//--------------------------------------------------------------
-	//_Worlds
-
-	/*
-	* world0
-	*
-	* field recording of park fading into granulated layers
-	*/
-	~world0 = Routine({
-		~reset.(~world1);
-		~reset.(~world2);
-		~reset.(~world3);
-
-		// exits
-		if(~activity[1], {
-			"exiting world 1".postln;
-			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			~fadeout.(~alm, amp:0.05, len:15);
-			// ~fadeout.(~collage, amp:0.8, len:15);
-			// ~fadeout.(~melting, amp:0.8, len:15);
-		});
-		if(~activity[2], {
-			"exiting world 2".postln;
-			~fadeout.(~water, amp:0.1, len:15.0);
-		});
-		if(~activity[3], {
-			"exiting world 3".postln;
-		});
-
-		~activity = false!4;
-		~activity[0] = true;
-
-		Routine.run({
-			~fadein.(~park, amp:0.8, len:15.0);
-			15.wait;
-			~fadeout.(~park, amp:0.8, len:30.0);
-		});
-
-		~interp.(~park, \send, 0.0, 0.8, len:45.0);
-		~fadein.(~collage, amp:0.8, len:45.0);
-		~fadein.(~melting, amp:0.8, len:60.0);
-
-		"entering world 0".postln;
-	});
-
-
-	/*
-	* world1
-	*
-	* almglocken sounds with 'melt' processing
-	*/
-	~world1 = Routine({
-		~reset.(~world0);
-		~reset.(~world2);
-		~reset.(~world3);
-
-		// exits
-		if(~activity[0], {
-			"exiting world 0".postln;
-			~interp.(~park, \send, 0.8, 0.0, len:30.0);
-			~fadeout.(~park, amp:0.8, len:15);
-		});
-		if(~activity[2], {
-			"exiting world 2".postln;
-			~fadeout.(~water, amp:0.1, len:15.0);
-		});
-		if(~activity[3], {
-			"exiting world 3".postln;
-		});
-
-		~activity = false!4;
-		~activity[1] = true;
-
-		// ~melting.set(\amp, 0.8);
-		~fadein.(~melting, amp:0.8, len:15.0);
-		~alm.set(\send, 0.4);
-
-		Routine.run({
-			~fadein.(~alm, amp:0.05, len:15.0);
-			15.wait;
-			~fadeout.(~alm, amp:0.05, len:30.0);
-		}).play;
-
-		"entering world 1".postln;
-	});
-
-
-	/*
-	* world2
-	*
-	* liquid
-	*/
-	~world2 = Routine({
-		~reset.(~world0);
-		~reset.(~world1);
-		~reset.(~world3);
-
-		// exits
-		if(~activity[0], {
-			"exiting world 0".postln;
-			~interp.(~park, \send, 0.8, 0.0, len:30.0);
-			~fadeout.(~park, amp:0.8, len:15);
-			~fadeout.(~collage, amp:0.8, len:15);
-			~fadeout.(~melting, amp:0.8, len:15);
-		});
-		if(~activity[1], {
-			"exiting world 1".postln;
-			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			~fadeout.(~alm, amp:0.05, len:15);
-			~fadeout.(~collage, amp:0.8, len:15);
-			~fadeout.(~melting, amp:0.8, len:15);
-		});
-		if(~activity[3], {
-			"exiting world 3".postln;
-		});
-
-		~activity = false!4;
-		~activity[2] = true;
-
-		~fadein.(~water, amp:0.1, len:15.0);
-
-		"entering world 2".postln;
-	});
-
-
-	/*
-	* world3
-	*
-	* phase modulation synthesis
-	*/
-	~world3 = Routine({
-		~reset.(~world0);
-		~reset.(~world1);
-		~reset.(~world2);
-
-		// exits
-		if(~activity[0], {
-			"exiting world 0".postln;
-			~interp.(~park, \send, 0.8, 0.0, len:30.0);
-			~fadeout.(~park, amp:0.8, len:15);
-			~fadeout.(~collage, amp:0.8, len:15);
-			~fadeout.(~melting, amp:0.8, len:15);
-		});
-		if(~activity[1], {
-			"exiting world 1".postln;
-			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			~fadeout.(~alm, amp:0.05, len:15);
-			~fadeout.(~collage, amp:0.8, len:15);
-			~fadeout.(~melting, amp:0.8, len:15);
-		});
-		if(~activity[2], {
-			"exiting world 2".postln;
-			~fadeout.(~water, amp:0.1, len:15.0);
-		});
-
-		~activity = false!4;
-		~activity[3] = true;
-
-		// audio
-		Routine.run({
-			while( {~activity[3]}, {
-				Synth(\phaseMod, [
-					\carrier,	2000.0.rand,
-					\mod, 		800.rand,
-					\pan, 		1.0.rand2,
-					\amp, 		0.8
-				]);
-				~space.wait;
-			});
-		});
-
-		"entering world 3".postln;
-	});
-
-	//--------------------------------------------------------------
-	//_Routing
-
-	s.sync; /* wait for server */
-
-	// mixer
-	~mix = Synth(\mixer, [\amp, 0.0]);
-
-	// processing
-	~collage   = Synth(\collage,   [\amp, 0.0]);
-	~melting   = Synth(\melt,      [\amp, 0.0]);
-	~conform   = Synth(\conformer, [\amp, 0.0]);
-	~convolve  = Synth(\convolve,  [\amp, 0.0]);
-	~resonator = Synth(\resonator, [\amp, 0.0]);
-	~inRes     = Synth(\inharmRes, [\amp, 0.0]);
-
-	// samplers
-	~water  = Synth(\looper_2ch, [\bufnum, ~b1.bufnum]);
-	~park   = Synth(\looper_2ch, [\bufnum, ~b2.bufnum]);
-	~alm    = Synth(\looper_2ch, [\bufnum, ~b3.bufnum]);
-	~coffee = Synth(\looper_2ch, [\bufnum, ~b4.bufnum]);
 
 	/**************************************************************************************************/
 	//_GUI
@@ -587,10 +599,12 @@ s.waitForBoot({
 		200,
 		400
 	))
-	.background_(Color(0.1, 0.1, 0.1));
+	.alwaysOnTop_(true)
+	.background_(Color(0.1, 0.1, 0.1))
+	;
 
 	// audio controls
-	~audio_toggle = Button(w, Rect(10, 10, 180, 80))
+	~audioToggle = Button(w, Rect(10, 10, 180, 80))
 	.states_([
 		["audio off", Color.black, Color.red],
 		["audio on", Color.black, Color.green]
@@ -600,81 +614,81 @@ s.waitForBoot({
 		if(state.value == 1, { ~mix.set(\amp, 1.0) });
 	});
 
-	~close_button = Button(w, Rect(10, 110, 180, 80))
+	~closeButton = Button(w, Rect(10, 110, 180, 80))
 	.states_([
 		["quit", Color.black, Color.blue]
 	])
 	.action_({ |state|
 		s.quit;
 		w.close;
-		if(not(~debug_ide), {
+		if(not(~debugIDE), {
 			thisProcess.shutdown;
 			0.exit;
 		});
 	});
 
 	// world triggers
-	~toggle_w0 = Button(w, Rect(10, 220, 180, 40))
+	~toggleW0 = Button(w, Rect(10, 220, 180, 40))
 	.states_([
 		[" world 0: inactive", Color.black, Color.white],
 		[" world 0: active  ", Color.black, Color.cyan]
 	])
 	.action_({ |state|
-		if(state.value == 0, { ~reset.(); });
+		if(state.value == 0, { ~resetAll.(); });
 		if(state.value == 1, {
 			~world0.play;
-			~toggle_w1.value_(0);
-			~toggle_w2.value_(0);
-			~toggle_w3.value_(0);
+			~toggleW1.value_(0);
+			~toggleW2.value_(0);
+			~toggleW3.value_(0);
 		});
 	});
 
-	~toggle_w1 = Button(w, Rect(10, 260, 180, 40))
+	~toggleW1 = Button(w, Rect(10, 260, 180, 40))
 	.states_([
 		[" world 1: inactive", Color.black, Color.white],
 		[" world 1: active  ", Color.black, Color.cyan]
 	])
 	.action_({ |state|
-		if(state.value == 0, { ~reset.(); });
+		if(state.value == 0, { ~resetAll.(); });
 		if(state.value == 1, {
 			~world1.play;
-			~toggle_w0.value_(0);
-			~toggle_w2.value_(0);
-			~toggle_w3.value_(0);
+			~toggleW0.value_(0);
+			~toggleW2.value_(0);
+			~toggleW3.value_(0);
 		});
 	});
 
-	~toggle_w2 = Button(w, Rect(10, 300, 180, 40))
+	~toggleW2 = Button(w, Rect(10, 300, 180, 40))
 	.states_([
 		[" world 2: inactive", Color.black, Color.white],
 		[" world 2: active  ", Color.black, Color.cyan]
 	])
 	.action_({ |state|
-		if(state.value == 0, { ~reset.(); });
+		if(state.value == 0, { ~resetAll.(); });
 		if(state.value == 1, {
 			~world2.play;
-			~toggle_w0.value_(0);
-			~toggle_w1.value_(0);
-			~toggle_w3.value_(0);
+			~toggleW0.value_(0);
+			~toggleW1.value_(0);
+			~toggleW3.value_(0);
 		});
 	});
 
-	~toggle_w3 = Button(w, Rect(10, 340, 180, 40))
+	~toggleW3 = Button(w, Rect(10, 340, 180, 40))
 	.states_([
 		[" world 3: inactive", Color.black, Color.white],
 		[" world 3: active  ", Color.black, Color.cyan]
 	])
 	.action_({ |state|
-		if(state.value == 0, { ~reset.(); });
+		if(state.value == 0, { ~resetAll.(); });
 		if(state.value == 1, {
 			~world3.play;
-			~toggle_w0.value_(0);
-			~toggle_w1.value_(0);
-			~toggle_w2.value_(0);
+			~toggleW0.value_(0);
+			~toggleW1.value_(0);
+			~toggleW2.value_(0);
 		});
 	});
 
 	// display gui
-	if( (~display_gui), { w.front });
+	if( (~displayGUI), { w.front });
 });
 )
