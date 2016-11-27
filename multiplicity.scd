@@ -342,13 +342,13 @@ s.waitForBoot({
 
 	~activity = false!4;
 
-	~reset = {
-		~activity = false!4;
-		for(0, ~worlds.size-1, { |i|
-			~worlds[i]
-			.stop
-			.reset;
-		});
+	~reset = { |r|
+/*		~activity = false!4;*/
+		r.stop.reset;
+/*		for(0, ~worlds.size-1, { |i|
+			~worlds[i].stop;
+			~worlds[i].reset;
+		});*/
 	};
 
 	~fadein = { |synth, amp=0.8, len=10.0, res=50|
@@ -390,20 +390,27 @@ s.waitForBoot({
 	* field recording of park fading into granulated layers
 	*/
 	~world0 = Routine({
-		// exit world1
+		~reset.(~world1);
+		~reset.(~world2);
+		~reset.(~world3);
+
+		// exits
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:15);
+			~fadeout.(~alm, amp:0.05, len:15);
+			// ~fadeout.(~collage, amp:0.8, len:15);
+			// ~fadeout.(~melting, amp:0.8, len:15);
 		});
 		if(~activity[2], {
 			"exiting world 2".postln;
-			~fadeout.(~bubble, amp:0.1, len:15.0);
+			~fadeout.(~water, amp:0.1, len:15.0);
 		});
 		if(~activity[3], {
-			// exit code
+			"exiting world 3".postln;
 		});
 
-		~reset.();
+		~activity = false!4;
 		~activity[0] = true;
 
 		Routine.run({
@@ -426,23 +433,29 @@ s.waitForBoot({
 	* almglocken sounds with 'melt' processing
 	*/
 	~world1 = Routine({
-		// exit world0
+		~reset.(~world0);
+		~reset.(~world2);
+		~reset.(~world3);
+
+		// exits
 		if(~activity[0], {
 			"exiting world 0".postln;
 			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~park, amp:0.8, len:15);
 		});
 		if(~activity[2], {
 			"exiting world 2".postln;
-			~fadeout.(~bubble, amp:0.1, len:15.0);
+			~fadeout.(~water, amp:0.1, len:15.0);
 		});
 		if(~activity[3], {
-			// exit code
+			"exiting world 3".postln;
 		});
 
-		~reset.();
+		~activity = false!4;
 		~activity[1] = true;
 
-		~melting.set(\amp, 0.8);
+		// ~melting.set(\amp, 0.8);
+		~fadein.(~melting, amp:0.8, len:15.0);
 		~alm.set(\send, 0.4);
 
 		Routine.run({
@@ -461,22 +474,33 @@ s.waitForBoot({
 	* liquid
 	*/
 	~world2 = Routine({
+		~reset.(~world0);
+		~reset.(~world1);
+		~reset.(~world3);
+
+		// exits
 		if(~activity[0], {
 			"exiting world 0".postln;
 			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~park, amp:0.8, len:15);
+			~fadeout.(~collage, amp:0.8, len:15);
+			~fadeout.(~melting, amp:0.8, len:15);
 		});
 		if(~activity[1], {
 			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:15);
+			~fadeout.(~alm, amp:0.05, len:15);
+			~fadeout.(~collage, amp:0.8, len:15);
 			~fadeout.(~melting, amp:0.8, len:15);
 		});
 		if(~activity[3], {
-			// exit code
+			"exiting world 3".postln;
 		});
 
-		~reset.();
+		~activity = false!4;
 		~activity[2] = true;
 
-		~fadein.(~bubble, amp:0.1, len:15.0);
+		~fadein.(~water, amp:0.1, len:15.0);
 
 		"entering world 2".postln;
 	});
@@ -488,22 +512,36 @@ s.waitForBoot({
 	* phase modulation synthesis
 	*/
 	~world3 = Routine({
+		~reset.(~world0);
+		~reset.(~world1);
+		~reset.(~world2);
+
+		// exits
 		if(~activity[0], {
-			// exit code
+			"exiting world 0".postln;
+			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~park, amp:0.8, len:15);
+			~fadeout.(~collage, amp:0.8, len:15);
+			~fadeout.(~melting, amp:0.8, len:15);
 		});
 		if(~activity[1], {
-			// exit code
+			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:15);
+			~fadeout.(~alm, amp:0.05, len:15);
+			~fadeout.(~collage, amp:0.8, len:15);
+			~fadeout.(~melting, amp:0.8, len:15);
 		});
 		if(~activity[2], {
-			// exit code
+			"exiting world 2".postln;
+			~fadeout.(~water, amp:0.1, len:15.0);
 		});
 
-		~reset.();
+		~activity = false!4;
 		~activity[3] = true;
 
 		// audio
 		Routine.run({
-			loop({
+			while( {~activity[3]}, {
 				Synth(\phaseMod, [
 					\carrier,	2000.0.rand,
 					\mod, 		800.rand,
@@ -534,7 +572,7 @@ s.waitForBoot({
 	~inRes     = Synth(\inharmRes, [\amp, 0.0]);
 
 	// samplers
-	~bubble = Synth(\looper_2ch, [\bufnum, ~b1.bufnum]);
+	~water  = Synth(\looper_2ch, [\bufnum, ~b1.bufnum]);
 	~park   = Synth(\looper_2ch, [\bufnum, ~b2.bufnum]);
 	~alm    = Synth(\looper_2ch, [\bufnum, ~b3.bufnum]);
 	~coffee = Synth(\looper_2ch, [\bufnum, ~b4.bufnum]);
@@ -567,7 +605,6 @@ s.waitForBoot({
 		["quit", Color.black, Color.blue]
 	])
 	.action_({ |state|
-		"exiting fracture audio\n".postln;
 		s.quit;
 		w.close;
 		if(not(~debug_ide), {
