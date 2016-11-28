@@ -365,7 +365,7 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			~fadeout.(~alm, amp:0.05, len:15);
+			// ~fadeout.(~alm, amp:0.05, len:15);
 		},{ /* else */
 			~fadein.(~melting, amp:0.8, len:60.0);
 			found = true;
@@ -479,8 +479,8 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
-			~fadeout.(~alm, amp:0.05, len:30.0);
-			~fadeout.(~collage, amp:0.8, len:30.0);
+			// ~fadeout.(~alm, amp:0.05, len:30.0);
+			// ~fadeout.(~collage, amp:0.8, len:30.0);
 			~fadeout.(~melting, amp:0.8, len:30.0);
 		});
 		if(~activity[3], {
@@ -526,8 +526,8 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
-			~fadeout.(~alm, amp:0.05, len:30.0);
-			~fadeout.(~collage, amp:0.8, len:30.0);
+			// ~fadeout.(~alm, amp:0.05, len:30.0);
+			// ~fadeout.(~collage, amp:0.8, len:30.0);
 			~fadeout.(~melting, amp:0.8, len:30.0);
 		});
 		if(~activity[2], {
