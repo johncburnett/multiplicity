@@ -33,13 +33,16 @@ o.memSize_(2e6); // 2GB of RAM
 o.numInputBusChannels  = 2; // 2 in
 o.numOutputBusChannels = 2; // 2 out
 
-//_Globals
-~debugIDE = true;
+//Globals
 ~displayGUI = true;
 
 //_Synthesis globals
-~dur = 10.0;   // duration of each swell
+~dur = 10.0;  // duration of each swell
 ~space = 2.5; // space between swell onsets
+
+//_Debugging
+~debugIDE = true;
+~debugServer = false;
 
 s.waitForBoot({
 
@@ -92,12 +95,12 @@ s.waitForBoot({
 	//_Live Input
 
 	// stereo input
-	SynthDef(\input, { |amp=0.0|
+	SynthDef(\live_in, { |amp=0.0, send=0.0|
 		var in, mix, chain, onsets;
 		in = [SoundIn.ar(0), SoundIn.ar(1)];
 		mix = in * amp;
-		Out.ar(10, in); 	// to processing
-		Out.ar(20, mix);	// to mixer
+		Out.ar(10, in * send); 	// to processing
+		Out.ar(20, mix);	    // to mixer
 	}).load(s);
 
 	//--------------------------------------------------------------
@@ -335,8 +338,11 @@ s.waitForBoot({
 	~alm    = Synth(\looper_2ch, [\bufnum, ~b3.bufnum]);
 	~coffee = Synth(\looper_2ch, [\bufnum, ~b4.bufnum]);
 
+	// live input
+	~live = Synth(\live_in, [\amp, 0.0, \send, 0.0]);
+
 	// synth arrays
-	~gens = [~water, ~park, ~alm, ~coffee]; // generators
+	~gens = [~water, ~park, ~alm, ~coffee, ~live]; // generators
 	~proc = [~collage, ~melting, ~conform, ~convolve, ~resonator, ~inRes]; // processing
 
 	/**************************************************************************************************/
@@ -348,9 +354,12 @@ s.waitForBoot({
 	* field recording of park fading into granulated layers
 	*/
 	~world0 = Routine({
+		var found = false;
+
 		~reset.(~world1);
 		~reset.(~world2);
 		~reset.(~world3);
+		~reset.(~world4);
 
 		// exits
 		if(~activity[1], {
@@ -359,6 +368,7 @@ s.waitForBoot({
 			~fadeout.(~alm, amp:0.05, len:15);
 		},{ /* else */
 			~fadein.(~melting, amp:0.8, len:60.0);
+			found = true;
 		});
 		if(~activity[2], {
 			"exiting world 2".postln;
@@ -370,20 +380,27 @@ s.waitForBoot({
 		if(~activity[3], {
 			"exiting world 3".postln;
 		});
+		if(~activity[4], {
+			"exiting world 4".postln;
+			~interp.(~live, \send, 0.8, 0.0, len:30);
+		},{ /* else */
+			if(not(found), { ~fadein.(~collage, amp:0.8, len:45.0) });
+		});
 
-		~activity = false!4;
+		~activity = false!5;
 		~activity[0] = true;
+
+		"entering world 0".postln;
 
 		Routine.run({
 			~fadein.(~park, amp:0.8, len:15.0);
 			15.wait;
 			~fadeout.(~park, amp:0.8, len:30.0);
+			30.wait;
+			"transform complete".postln;
 		});
 
 		~interp.(~park, \send, 0.0, 0.8, len:45.0);
-		// ~fadein.(~collage, amp:0.8, len:45.0);
-
-		"entering world 0".postln;
 	});
 
 
@@ -396,6 +413,7 @@ s.waitForBoot({
 		~reset.(~world0);
 		~reset.(~world2);
 		~reset.(~world3);
+		~reset.(~world4);
 
 		// exits
 		if(~activity[0], {
@@ -413,9 +431,16 @@ s.waitForBoot({
 		if(~activity[3], {
 			"exiting world 3".postln;
 		});
+		if(~activity[4], {
+			"exiting world 4".postln;
+			~interp.(~live, \send, 0.8, 0.0, len:30);
+			~fadeout.(~collage, amp:0.8, len:30.0);
+		});
 
-		~activity = false!4;
+		~activity = false!5;
 		~activity[1] = true;
+
+		"entering world 1".postln;
 
 		~interp.(~alm, \send, 0.0, 0.3, len:30);
 
@@ -423,21 +448,24 @@ s.waitForBoot({
 			~fadein.(~alm, amp:0.05, len:15.0);
 			15.wait;
 			~fadeout.(~alm, amp:0.05, len:30.0);
-		}).play;
-
-		"entering world 1".postln;
+			30.wait;
+			"transform complete".postln;
+		});
 	});
 
 
 	/*
 	* world2
 	*
-	* liquid
+	* liquid + collage
 	*/
 	~world2 = Routine({
+		var found = false;
+
 		~reset.(~world0);
 		~reset.(~world1);
 		~reset.(~world3);
+		~reset.(~world4);
 
 		// exits
 		if(~activity[0], {
@@ -445,7 +473,8 @@ s.waitForBoot({
 			~interp.(~park, \send, 0.8, 0.0, len:30.0);
 			~fadeout.(~melting, amp:0.8, len:30);
 		},{ /* else */
-			~fadein.(~collage, amp:0.8, len:45.0); // if not already set
+			~fadein.(~collage, amp:0.8, len:45.0);
+			found = true;
 		});
 		if(~activity[1], {
 			"exiting world 1".postln;
@@ -457,14 +486,22 @@ s.waitForBoot({
 		if(~activity[3], {
 			"exiting world 3".postln;
 		});
+		if(~activity[4], {
+			"exiting world 4".postln;
+			~interp.(~live, \send, 0.8, 0.0, len:30);
+		},{ /* else */
+			if(not(found), { ~fadein.(~collage, amp:0.8, len:45.0) });
+		});
 
-		~activity = false!4;
+		~activity = false!5;
 		~activity[2] = true;
+
+		"entering world 2".postln;
 
 		~fadein.(~water, amp:0.1, len:30.0);
 		~interp.(~water, \send, 0.0, 0.8, len:30);
 
-		"entering world 2".postln;
+		Routine.run({ 45.wait; "transform complete".postln; });
 	});
 
 
@@ -477,6 +514,7 @@ s.waitForBoot({
 		~reset.(~world0);
 		~reset.(~world1);
 		~reset.(~world2);
+		~reset.(~world4);
 
 		// exits
 		if(~activity[0], {
@@ -498,9 +536,16 @@ s.waitForBoot({
 			~interp.(~water, \send, 0.8, 0.0, len:30);
 			~fadeout.(~collage, \collage, amp:0.8, len:30.0);
 		});
+		if(~activity[4], {
+			"exiting world 4".postln;
+			~interp.(~live, \send, 0.8, 0.0, len:30);
+			~fadeout.(~collage, amp:0.8, len:30.0);
+		});
 
-		~activity = false!4;
+		~activity = false!5;
 		~activity[3] = true;
+
+		"entering world 3".postln;
 
 		// audio
 		Routine.run({
@@ -515,7 +560,68 @@ s.waitForBoot({
 			});
 		});
 
-		"entering world 3".postln;
+		"transform complete".postln;
+	});
+
+
+	/*
+	* world4
+	*
+	* live input
+	*/
+	~world4 = Routine({
+		var found = false;
+
+		~reset.(~world0);
+		~reset.(~world1);
+		~reset.(~world2);
+		~reset.(~world3);
+
+		// exits
+		if(~activity[0], {
+			"exiting world 0".postln;
+			~interp.(~park, \send, 0.8, 0.0, len:30.0);
+			~fadeout.(~melting, amp:0.8, len:30);
+		},{ /* else */
+			~fadein.(~collage, amp:0.8, len:45.0);
+			found = true;
+		});
+		if(~activity[1], {
+			"exiting world 1".postln;
+			~interp.(~alm, \send, 0.4, 0.0, len:15);
+			~fadeout.(~alm, amp:0.05, len:15);
+		});
+		if(~activity[2], {
+			"exiting world 2".postln;
+			~fadeout.(~water, amp:0.1, len:15.0);
+			~interp.(~water, \send, 0.8, 0.0, len:30);
+		},{ /* else */
+			if(not(found), { ~fadein.(~collage, amp:0.8, len:45.0) });
+		});
+		if(~activity[3], {
+			"exiting world 3".postln;
+		});
+
+		~activity = false!5;
+		~activity[4] = true;
+
+		"entering world 4".postln;
+
+		~fadein.(~live, amp:0.8, len:30);
+		~interp.(~live, \send, 0.0, 0.8, len:45);
+
+		Routine.run({
+			~fadein.(~live, amp:0.8, len:15.0);
+			15.wait;
+			~fadeout.(~live, amp:0.8, len:30.0);
+			30.wait;
+			"transform complete".postln;
+		});
+
+		Routine.run({
+			45.wait;
+			"transform complete".postln;
+		});
 	});
 
 	//--------------------------------------------------------------
@@ -541,10 +647,10 @@ s.waitForBoot({
 	};
 
 	~worlds = [
-		~world0, ~world1, ~world2, ~world3
+		~world0, ~world1, ~world2, ~world3, ~world4
 	];
 
-	~activity = false!4;
+	~activity = false!5;
 
 	~reset = { |r| r.stop.reset };
 
@@ -553,8 +659,9 @@ s.waitForBoot({
 		~world1.stop.reset;
 		~world2.stop.reset;
 		~world3.stop.reset;
+		~world4.stop.reset;
 
-		~activity = false!4;
+		~activity = false!5;
 
 		for(0, ~gens.size-1, { |i| ~gens[i].set(\amp, 0.0, \send, 0.0) });
 		for(0, ~proc.size-1, { |i| ~proc[i].set(\amp, 0.0) });
@@ -597,7 +704,7 @@ s.waitForBoot({
 		Window.screenBounds.width - 200,
 		Window.screenBounds.height,
 		200,
-		400
+		440
 	))
 	.alwaysOnTop_(true)
 	.background_(Color(0.1, 0.1, 0.1))
@@ -640,6 +747,7 @@ s.waitForBoot({
 			~toggleW1.value_(0);
 			~toggleW2.value_(0);
 			~toggleW3.value_(0);
+			~toggleW4.value_(0);
 		});
 	});
 
@@ -655,6 +763,7 @@ s.waitForBoot({
 			~toggleW0.value_(0);
 			~toggleW2.value_(0);
 			~toggleW3.value_(0);
+			~toggleW4.value_(0);
 		});
 	});
 
@@ -670,6 +779,7 @@ s.waitForBoot({
 			~toggleW0.value_(0);
 			~toggleW1.value_(0);
 			~toggleW3.value_(0);
+			~toggleW4.value_(0);
 		});
 	});
 
@@ -685,7 +795,31 @@ s.waitForBoot({
 			~toggleW0.value_(0);
 			~toggleW1.value_(0);
 			~toggleW2.value_(0);
+			~toggleW4.value_(0);
 		});
+	});
+
+	~toggleW4 = Button(w, Rect(10, 380, 180, 40))
+	.states_([
+		[" world 4: inactive", Color.black, Color.white],
+		[" world 4: active  ", Color.black, Color.cyan]
+	])
+	.action_({ |state|
+		if(state.value == 0, { ~resetAll.(); });
+		if(state.value == 1, {
+			~world4.play;
+			~toggleW0.value_(0);
+			~toggleW1.value_(0);
+			~toggleW2.value_(0);
+			~toggleW3.value_(0);
+		});
+	});
+
+	// server GUI items
+	if(~debugServer, {
+		s.meter;
+		s.scope;
+		s.plotTree;
 	});
 
 	// display gui
