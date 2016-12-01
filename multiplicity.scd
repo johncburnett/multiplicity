@@ -24,7 +24,7 @@
 //_Init
 
 //_Routing
-~num_inputs = 1; // 1 or 2
+~num_inputs = 2; // 1 or 2
 
 //_Server
 s = Server.local;
@@ -37,8 +37,8 @@ o.numOutputBusChannels = 2; // 2 out
 ~displayGUI = true;
 
 //_Synthesis globals
-~dur = 10.0;  // duration of each swell
-~space = 2.5; // space between swell onsets
+~dur = 20.0;  // duration of each swell
+~space = 5;   // space between swell onsets
 
 //_Debugging
 ~debugIDE = true;
@@ -101,7 +101,7 @@ s.waitForBoot({
 		mix = in * amp;
 		Out.ar(10, in * send); 	// to processing
 		Out.ar(20, mix);	    // to mixer
-	}).load(s);
+	}).add;
 
 	//--------------------------------------------------------------
 	//_Samplers
@@ -112,7 +112,7 @@ s.waitForBoot({
 		mix = Pan2.ar(in, pan) * amp;
 		Out.ar(10, in * send); 	// to processing
 		Out.ar(20, mix);	    // to mixer
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\sampler_2ch, { |bufnum=0, rate=1.0, amp=0.0, send=0.0|
@@ -121,7 +121,7 @@ s.waitForBoot({
 		mix = in * amp;
 		Out.ar(10, in * send); 	// to processing
 		Out.ar(20, mix);	    // to mixer
-	}).load(s);
+	}).add;
 
 	SynthDef(\looper_1ch, { |bufnum=0, rate=1.0, pan=0, amp=0.0, send=0.0|
 		var in, mix;
@@ -129,7 +129,7 @@ s.waitForBoot({
 		mix = Pan2.ar(in, pan) * amp;
 		Out.ar(10, in * send); 	// to processing
 		Out.ar(20, mix);	    // to mixer
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\looper_2ch, { |bufnum=0, rate=1.0, amp=0.0, send=0.0|
@@ -138,7 +138,7 @@ s.waitForBoot({
 		mix = in * amp;
 		Out.ar(10, in * send); 	// to processing
 		Out.ar(20, mix);	    // to mixer
-	}).load(s);
+	}).add;
 
 	//--------------------------------------------------------------
 	//_Processing
@@ -150,7 +150,7 @@ s.waitForBoot({
 		blend = Vocoder.ar(perc, vox, 56);
 		mix   = blend * amp;
 		Out.ar(20, mix); // to mixer
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\conformer, { |amp=0.0|
@@ -188,7 +188,7 @@ s.waitForBoot({
 
 		mix = (res0 + res1) * amp;
 		Out.ar(20, mix);
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\inharmRes, { |amp=0.0, panWidth=0.7|
@@ -200,7 +200,7 @@ s.waitForBoot({
 		res1 = Pan2.ar(res1, panWidth);
 		mix = (res0 + res1) * amp;
 		Out.ar(20, mix);
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\chorus, { |amp=0.0, predelay=0.08, speed=0.05, depth=0.1, ph_diff=0.5|
@@ -219,7 +219,7 @@ s.waitForBoot({
 
 		mix = [sig1, sig2];
 		Out.ar(20, mix);
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\collage,{ |amp=0.0|
@@ -246,7 +246,7 @@ s.waitForBoot({
 		d2 = Pan2.ar(d2, -1.0*pan);
 		mix = [d1, d2] * amp;
 		Out.ar(20, mix);
-	}).load(s);
+	}).add;
 
 
 	SynthDef(\melt,{ |amp=0.0, mod_scale=1.0|
@@ -292,7 +292,7 @@ s.waitForBoot({
 		mix = ([d1, d2]*4) * amp;
 
 		Out.ar(20, mix);	// to mixer
-	}).load(s);
+	}).add;
 
 	//--------------------------------------------------------------
 	//_Synthesis
@@ -304,7 +304,7 @@ s.waitForBoot({
 		pmOsc    = PMOsc.ar(carrier, mod, phaseEnv, mul:0.1);
 		mix      = Pan2.ar(pmOsc * ampEnv, pan) * amp;
 		Out.ar(20, mix);
-	}).load(s);
+	}).add;
 
 	//--------------------------------------------------------------
 	//_Mixer
@@ -314,7 +314,7 @@ s.waitForBoot({
 		in = In.ar(20, 2);
 		mix = Limiter.ar(MidEQ.ar(in, 15000, 0.7, 8)) * amp;
 		Out.ar(0, mix);
-	}).load(s);
+	}).add;
 
 	/**************************************************************************************************/
 	//_Routing
@@ -365,7 +365,6 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			// ~fadeout.(~alm, amp:0.05, len:15);
 		},{ /* else */
 			~fadein.(~melting, amp:0.8, len:60.0);
 			found = true;
@@ -479,8 +478,6 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
-			// ~fadeout.(~alm, amp:0.05, len:30.0);
-			// ~fadeout.(~collage, amp:0.8, len:30.0);
 			~fadeout.(~melting, amp:0.8, len:30.0);
 		});
 		if(~activity[3], {
@@ -526,8 +523,6 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:30.0);
-			// ~fadeout.(~alm, amp:0.05, len:30.0);
-			// ~fadeout.(~collage, amp:0.8, len:30.0);
 			~fadeout.(~melting, amp:0.8, len:30.0);
 		});
 		if(~activity[2], {
@@ -554,7 +549,7 @@ s.waitForBoot({
 					\carrier,	2000.0.rand,
 					\mod, 		800.rand,
 					\pan, 		1.0.rand2,
-					\amp, 		0.4
+					\amp, 		0.3
 				]);
 				~space.wait;
 			});
@@ -589,7 +584,6 @@ s.waitForBoot({
 		if(~activity[1], {
 			"exiting world 1".postln;
 			~interp.(~alm, \send, 0.4, 0.0, len:15);
-			~fadeout.(~alm, amp:0.05, len:15);
 		});
 		if(~activity[2], {
 			"exiting world 2".postln;
@@ -723,7 +717,7 @@ s.waitForBoot({
 
 	~closeButton = Button(w, Rect(10, 110, 180, 80))
 	.states_([
-		["quit", Color.black, Color.blue]
+		["quit", Color.white, Color.blue]
 	])
 	.action_({ |state|
 		s.quit;
