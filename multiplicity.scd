@@ -33,7 +33,7 @@ o.memSize_(2e6); // 2GB of RAM
 o.numInputBusChannels  = 2; // 2 in
 o.numOutputBusChannels = 2; // 2 out
 
-//Globals
+//_Globals
 ~displayGUI = true;
 
 //_Synthesis globals
@@ -53,43 +53,7 @@ s.waitForBoot({
 	~b1 = Buffer.read(s, ~cwd +/+ "water.wav");
 	~b2 = Buffer.read(s, ~cwd +/+ "park.wav");
 	~b3 = Buffer.read(s, ~cwd +/+ "alm.wav");
-	~b4 = Buffer.read(s, ~cwd +/+ "coffee.wav");
 	s.sync; /* wait for server */
-
-	//--------------------------------------------------------------
-	//_Data
-
-	~fifthGen = { |fundamental=200.0, numFreqs=4, freqRatio=1.5, ampRatio=0.5, amp=0.2|
-		var freqs, amps, times;
-		freqs = Array(numFreqs).add(fundamental);
-		amps  = Array(numFreqs).add(amp);
-		times = Array(numFreqs).add(exprand(0.5, 1.5));
-		for(1, numFreqs, { |i|
-			freqs.add(freqs[i-1] * freqRatio);
-			amps.add(amps[i-1] * ampRatio);
-			times.add(exprand(0.5, 1.5));
-		});
-		[freqs, amps, times];
-	};
-
-	~spatializer = { |freqAmpSet, numChannels=2|
-		var spread = Array.fill(3, {
-			Array.fill(numChannels, { Array(freqAmpSet[0].size / numChannels) })
-		});
-		for(0, freqAmpSet[0].size-1, { |i|
-			spread[0][i % numChannels].add(freqAmpSet[0][i]);
-			spread[1][i % numChannels].add(freqAmpSet[1][i]);
-			spread[2][i % numChannels].add(freqAmpSet[2][i]);
-		});
-		spread;
-	};
-
-	~numVoices = 8;
-	~resonance = ~fifthGen.(numFreqs:~numVoices);
-	~spread = ~spatializer.(~resonance, numChannels:2);
-	~resFreqs = ~spread[0];
-	~resAmps  = ~spread[1];
-	~resTimes = ~spread[2];
 
 	//--------------------------------------------------------------
 	//_Live Input
@@ -142,66 +106,6 @@ s.waitForBoot({
 
 	//--------------------------------------------------------------
 	//_Processing
-
-	SynthDef(\convolve, { |amp=0.0|
-		var perc, vox, blend, mix;
-		perc  = In.ar(10);
-		vox   = In.ar(11);
-		blend = Vocoder.ar(perc, vox, 56);
-		mix   = blend * amp;
-		Out.ar(20, mix); // to mixer
-	}).add;
-
-
-	SynthDef(\conformer, { |amp=0.0|
-		var in, chain, mix;
-		in = In.ar(10, 2);
-		chain = FFT(LocalBuf(1024), in);
-		chain = PV_ConformalMap(chain, MouseX.kr(-1.0,1.0), MouseY.kr(-1.0,1.0));
-		mix = IFFT(chain) * amp;
-		Out.ar(20, mix);
-	}).add;
-
-
-	SynthDef(\resonator, { |amp=0.0, mod=1.0, panWidth=0.7|
-		var in, res0, res1, mix;
-		in = In.ar(10, 2);
-
-		res0 = Klank.ar(
-			`[
-				Select.kr(0, ~resFreqs),
-				Select.kr(0, ~resAmps),
-				2.0!4
-			],
-			in[0],
-			mod);
-		res1 = Klank.ar(
-			`[
-				Select.kr(1, ~resFreqs),
-				Select.kr(1, ~resAmps),
-				2.0!4
-			],
-			in[1],
-			mod);
-		res0 = Pan2.ar(res0, -1 * panWidth);
-		res1 = Pan2.ar(res1, panWidth);
-
-		mix = (res0 + res1) * amp;
-		Out.ar(20, mix);
-	}).add;
-
-
-	SynthDef(\inharmRes, { |amp=0.0, panWidth=0.7|
-		var in, res0, res1, mix, pan;
-		in   = In.ar(10, 2);
-		res0 = Ringz.ar(in[0], {exprand(300, 20000)}.dup(100)).mean;
-		res1 = Ringz.ar(in[1], {exprand(300, 20000)}.dup(100)).mean;
-		res0 = Pan2.ar(res0, -1 * panWidth);
-		res1 = Pan2.ar(res1, panWidth);
-		mix = (res0 + res1) * amp;
-		Out.ar(20, mix);
-	}).add;
-
 
 	SynthDef(\chorus, { |amp=0.0, predelay=0.08, speed=0.05, depth=0.1, ph_diff=0.5|
 		var in1, in2, mod1, mod2, sig1, sig2, mix, numDelays = 12;
@@ -327,23 +231,18 @@ s.waitForBoot({
 	// processing
 	~collage   = Synth(\collage,   [\amp, 0.0]);
 	~melting   = Synth(\melt,      [\amp, 0.0]);
-	~conform   = Synth(\conformer, [\amp, 0.0]);
-	~convolve  = Synth(\convolve,  [\amp, 0.0]);
-	~resonator = Synth(\resonator, [\amp, 0.0]);
-	~inRes     = Synth(\inharmRes, [\amp, 0.0]);
 
 	// samplers
 	~water  = Synth(\looper_2ch, [\bufnum, ~b1.bufnum]);
 	~park   = Synth(\looper_2ch, [\bufnum, ~b2.bufnum]);
 	~alm    = Synth(\looper_2ch, [\bufnum, ~b3.bufnum]);
-	~coffee = Synth(\looper_2ch, [\bufnum, ~b4.bufnum]);
 
 	// live input
 	~live = Synth(\live_in, [\amp, 0.0, \send, 0.0]);
 
 	// synth arrays
-	~gens = [~water, ~park, ~alm, ~coffee, ~live]; // generators
-	~proc = [~collage, ~melting, ~conform, ~convolve, ~resonator, ~inRes]; // processing
+	~gens = [~water, ~park, ~alm, ~live]; // generators
+	~proc = [~collage, ~melting]; // processing
 
 	/**************************************************************************************************/
 	//_Worlds
@@ -701,8 +600,7 @@ s.waitForBoot({
 		440
 	))
 	.alwaysOnTop_(true)
-	.background_(Color(0.1, 0.1, 0.1))
-	;
+	.background_(Color(0.1, 0.1, 0.1));
 
 	// audio controls
 	~audioToggle = Button(w, Rect(10, 10, 180, 80))
